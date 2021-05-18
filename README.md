@@ -1,2 +1,2 @@
-# ec607-comp-assignment3
-3rd Assignment for EC607: Computational Economics in Spring 2021
+# EC 607: Computation Economics Assignment 3
+Code and results for 3rd assignment
