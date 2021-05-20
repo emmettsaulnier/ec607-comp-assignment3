@@ -1,2 +1,6 @@
 [deps]
+FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
+Gadfly = "c91e804a-d5a3-530f-b6f0-dfbca275c004"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Weave = "44d3d7a6-8a23-5bf8-98c5-b353f8df5ec9"
