@@ -18,6 +18,10 @@ using Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
     κ::Float64 = 0.01   # Cost of changing prices    
     μ::Float64 = 0.0    # Mean of random shoc
     σ::Float64 = 0.1    # SD of random shock  
+
+    mugrid::Vector{Float64} = LinRange(0.05,0.5,20)
+    spline_order::Int = 3
+
 end;
 
 # Setting plot themes
@@ -72,11 +76,28 @@ Let $V(\mu)$ be the value of a firm entering with markup $\mu$ (this is after it
 Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =0.01$ and $\sigma_\epsilon = 0.1$.  Write a program to solve the problem of the firm. (Use Gauss-Hermite quadrature to compute the expectation over $\epsilon_i$)
 
 ```julia
+
+using Optim
+"""
+    optimalpolicy(para::NCParameters,Vprime,k)
+
+Computes optimal policy using continuation value function V and current capital
+level k given parameters in para.
+"""
+function optimalpolicy(para::MParameters,Vprime,μ)
+    @unpack β, γ, κ ,mugrid = param
+    mu_bounds = [mugrid[1],mugrid[end]]
+    f_objective(μ') = -( log(A*k^α-kprime)+β*Vprime(μ') ) #stores objective as function
+    k_max = min(A*k^α-.001,k_bounds[2]) #Can't have negative consumptions
+    result = optimize(f_objective,k_bounds[1],k_max)
+    return (kprime = result.minimizer,V=-result.minimum) #using named tuples 
+end;
+
+param = MParameters()
+
+
+
 # Gauss-Hermite Quadrature for expected value of ϵ
-param = MParameters
-
-@unpack β,γ,κ,μ,σ = param
-
 """
     expectation_normal(h,μ,σ,N)
 
@@ -90,13 +111,10 @@ function expectation_normal(h,μ,σ,N)
     return sum(w[i]*h(x[i]) for i in 1:N)/sqrt(pi)
 end;
 
-expectation_normal(f(x)=x^(-1),0,param.σ 
+exp_inv = expectation_normal((x)->x^(-1),param.μ,param.σ,10) 
 
+# Using Interpolation 
 
-function solvebellman(μ_, param)
-
-v =  
-j = 
 
 
 
