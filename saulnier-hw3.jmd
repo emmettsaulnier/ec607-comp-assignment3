@@ -16,8 +16,9 @@ using Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
     β::Float64 = 0.9981 # Monthly Discount Factor
     γ::Float64 = 3.0    # Elasticity of substitution
     κ::Float64 = 0.01   # Cost of changing prices    
-    μ::Float64 = 0.0    # Mean of random shoc
-    σ::Float64 = 0.1    # SD of random shock  
+    W̄::Float63 = 1      # Wages
+    μe::Float64 = 0.0   # Mean of random shoc
+    σe::Float64 = 0.1   # SD of random shock  
 
     mugrid::Vector{Float64} = LinRange(0.05,0.5,20)
     spline_order::Int = 3
@@ -77,25 +78,7 @@ Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =
 
 ```julia
 
-using Optim
-"""
-    optimalpolicy(para::NCParameters,Vprime,k)
-
-Computes optimal policy using continuation value function V and current capital
-level k given parameters in para.
-"""
-function optimalpolicy(para::MParameters,Vprime,μ)
-    @unpack β, γ, κ ,mugrid = param
-    mu_bounds = [mugrid[1],mugrid[end]]
-    f_objective(μ') = -( log(A*k^α-kprime)+β*Vprime(μ') ) #stores objective as function
-    k_max = min(A*k^α-.001,k_bounds[2]) #Can't have negative consumptions
-    result = optimize(f_objective,k_bounds[1],k_max)
-    return (kprime = result.minimizer,V=-result.minimum) #using named tuples 
-end;
-
-param = MParameters()
-
-
+using Optim, BasisMatrices
 
 # Gauss-Hermite Quadrature for expected value of ϵ
 """
@@ -111,9 +94,86 @@ function expectation_normal(h,μ,σ,N)
     return sum(w[i]*h(x[i]) for i in 1:N)/sqrt(pi)
 end;
 
-exp_inv = expectation_normal((x)->x^(-1),param.μ,param.σ,10) 
 
-# Using Interpolation 
+"""
+    optimalpolicy(para::NCParameters,Vprime,k)
+
+Computes optimal policy using continuation value function V and current capital
+level k given parameters in para.
+"""
+function optimalpolicy(para::MParameters,Bprime,μ)
+    @unpack β,γ,κ,W̄,μe,σe,mugrid = para
+    mu_bounds = [mugrid[1],mugrid[end]]
+    # Value if the firm does not change prices  
+    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β* expectation_normal(Bprime,μe,σe,N)
+    # Value if the firm does change prices  
+    J(μo) = W̄^(1-γ)*(μo - 1)*μ'^(-γ) - κ + β*Bprime(μo)
+    Jresult = optimize(J,mu_bounds[1],mu_bounds[2])
+    # Choosing whether to keep prices or change prices 
+    if V >= -Jresult.minimum 
+        return(μ' = μ, B = V)
+    else 
+        return(μ' = Jresult.minimizer, B = -Jresult.minimum)
+    end
+end;
+
+
+"""
+    bellmanmap(Vprime,para::NCParameters)
+
+Apply the bellman map given continuation value function Vprime
+"""
+function bellmanmap(para::MParameters,Bprime::Interpoland)
+    mubasis = Bprime.basis
+    #sometimes it's helpful to tell julia what type a variable is
+    munodes = nodes(mubasis)[1]::Vector{Float64}
+    B = map(μ->optimalpolicy(para,Bprime,μ).B,munodes)
+    return Interpoland(mubasis,B)
+end;
+
+
+"""
+    solvebellman(para::NCParameters,V0::Interpoland)
+
+Solves the bellman equation for a given V0
+"""
+function solvebellman(para::MParameters,B0::Interpoland)
+    diff = 1
+    #Iterate of Bellman Map until difference in coefficients goes to zero
+    while diff > 1e-6
+        B = bellmanmap(para,B0)
+        diff = norm(B.coefs-B0.coefs,Inf)
+        B0 = B
+    end
+    mubasis = B0.mubasis
+    munodes = nodes(mubasis)[1]::Vector{Float64}
+    #remember optimalpolicy also returns the argmax
+    muprime = map(μ->optimalpolicy(para,B0,μ).muprime,munodes)
+    #Now get policies
+    return Interpoland(mubasis,muprime),B0
+end;
+
+
+"""
+    getV0(para::NCParameters)
+
+Initializes V0(k) = 0 using the kgrid of para
+"""
+function getB0(para::MParameters)
+    @unpack mugrid,spline_order = para
+
+    mubasis = Basis(SplineParams(mugrid,0,spline_order))
+
+    return Interpoland(mubasis,μ->0 .*μ)
+end
+
+para = MParameters()
+muprime,B = solvebellman(para,getB0(para));
+
+
+
+
+
 
 
 
