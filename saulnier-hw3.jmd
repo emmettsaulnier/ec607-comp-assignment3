@@ -16,7 +16,7 @@ using Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
     β::Float64 = 0.9981 # Monthly Discount Factor
     γ::Float64 = 3.0    # Elasticity of substitution
     κ::Float64 = 0.01   # Cost of changing prices    
-    W̄::Float63 = 1      # Wages
+    W̄::Float64 = 1      # Wages
     μe::Float64 = 0.0   # Mean of random shoc
     σe::Float64 = 0.1   # SD of random shock  
 
@@ -89,7 +89,6 @@ N point Gauss-Hermite quadrature
 function expectation_normal(h,μ,σ,N)
     ξ,w = gausshermite(N)
     x = sqrt(2).*σ.*ξ .+ μ
-
     return sum(w[i]*h(x[i]) for i in 1:N)/sqrt(pi)
 end;
 
@@ -106,15 +105,15 @@ function optimalpolicy(para::MParameters,Πprime,μ_,ε)
     # Calculating this period's markup given this period's shock and last period's markup
     μ = μ_/exp(ε)
     # Value if the firm does not change prices  
-    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(ε'->Πprime(μ,ε'),μe,σe,10)
+    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(εprime->Πprime([μ,εprime]),μe,σe,10)
     # Value if the firm does change prices  
-    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(ε->Πprime(μo,ε),μe,σe,10))
+    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(εprime->Πprime([μo,εprime]),μe,σe,10))
     Jresult = optimize(J,mu_bounds[1],mu_bounds[2])
     # Choosing whether to keep prices or change prices 
     if V >= -Jresult.minimum 
-        return(μ' = μ, Π = V)
+        return(μprime = μ, Π = V)
     else 
-        return(μ' = Jresult.minimizer, Π = -Jresult.minimum)
+        return(μprime = Jresult.minimizer, Π = -Jresult.minimum)
     end
 end;
 
@@ -129,8 +128,8 @@ function bellmanmap(para::MParameters, Πprime::Interpoland)
     # Getting the basis and nodes for (μ,ε) from Πprime
     basis = Πprime.basis
     X = nodes(basis)[1]
-    # Function to be approximated
-    f(μ,ε) = optimalpolicy(para,Πprime,μ,ε).Π
+    # Function to be approximated, x[1] is μ and x[2] is ε
+    f(x) = optimalpolicy(para,Πprime,x[1],x[2]).Π
     # compute f at each node
     fvals = [f(X[i,:]) for i in 1:size(X,1)]
     f̂ = Interpoland(basis,fvals)
@@ -154,8 +153,8 @@ function solvebellman(para::MParameters, Π0::Interpoland)
     # Now getting the policy rules using the interpolated value function
     pol_basis = Π0.basis
     pol_nodes = nodes(pol_basis)[1]
-    pol(μ,ε) = optimalpolicy(para,Π0,μ,ε).μ'
-    pol_vals = [pol(X[i,:]) for i in 1:size(pol_nodes,1)]
+    pol(x) = optimalpolicy(para,Π0,x[1],x[2]).μprime
+    pol_vals = [pol(pol_nodes[i,:]) for i in 1:size(pol_nodes,1)]
     return Interpoland(pol_basis,pol_vals),Π0
 end;
 
@@ -169,15 +168,15 @@ function getΠ0(para::MParameters)
     @unpack mugrid,spline_order = para
     # Using splines for mu and chebyshev for epsilon
     mu_basis = SplineParams(mugrid,0,spline_order)
-    ε_basis = ChebParams(3,-Inf,Inf)
+    ε_basis = ChebParams(3,-10,10)
     basis = Basis(mu_basis,ε_basis)
-
-    return Interpoland(basis,(μ,ε)-> 0 .* μ .* ε)
+    # Starting with Π0 = 0
+    zero = [0 for i in 1:size(nodes(basis)[1],1)]
+    return Interpoland(basis,zero)
 end
 
 para = MParameters()
-muprime,B = solvebellman(para,getΠ0(para));
-
+muprime,Π = solvebellman(para,getΠ0(para));
 ```
 
 ## Problem 4  
