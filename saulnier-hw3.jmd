@@ -79,7 +79,6 @@ Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =
 ```julia
 
 using Optim, BasisMatrices
-
 # Gauss-Hermite Quadrature for expected value of ϵ
 """
     expectation_normal(h,μ,σ,N)
@@ -101,34 +100,41 @@ end;
 Computes optimal policy using continuation value function V and current capital
 level k given parameters in para.
 """
-function optimalpolicy(para::MParameters,Bprime,μ)
+function optimalpolicy(para::MParameters,Πprime,μ_,ε)
     @unpack β,γ,κ,W̄,μe,σe,mugrid = para
     mu_bounds = [mugrid[1],mugrid[end]]
+    # Calculating this period's markup given this period's shock and last period's markup
+    μ = μ_/exp(ε)
     # Value if the firm does not change prices  
-    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β* expectation_normal(Bprime,μe,σe,N)
+    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(ε'->Πprime(μ,ε'),μe,σe,10)
     # Value if the firm does change prices  
-    J(μo) = W̄^(1-γ)*(μo - 1)*μ'^(-γ) - κ + β*Bprime(μo)
+    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(ε->Πprime(μo,ε),μe,σe,10))
     Jresult = optimize(J,mu_bounds[1],mu_bounds[2])
     # Choosing whether to keep prices or change prices 
     if V >= -Jresult.minimum 
-        return(μ' = μ, B = V)
+        return(μ' = μ, Π = V)
     else 
-        return(μ' = Jresult.minimizer, B = -Jresult.minimum)
+        return(μ' = Jresult.minimizer, Π = -Jresult.minimum)
     end
 end;
 
 
-"""
-    bellmanmap(Vprime,para::NCParameters)
 
-Apply the bellman map given continuation value function Vprime
 """
-function bellmanmap(para::MParameters,Bprime::Interpoland)
-    mubasis = Bprime.basis
-    #sometimes it's helpful to tell julia what type a variable is
-    munodes = nodes(mubasis)[1]::Vector{Float64}
-    B = map(μ->optimalpolicy(para,Bprime,μ).B,munodes)
-    return Interpoland(mubasis,B)
+    bellmanmap(Vprime,para::NCParameters) 
+
+Apply the bellman map given continuation value function Vprime and shock ε 
+"""
+function bellmanmap(para::MParameters, Πprime::Interpoland)
+    # Getting the basis and nodes for (μ,ε) from Πprime
+    basis = Πprime.basis
+    X = nodes(basis)[1]
+    # Function to be approximated
+    f(μ,ε) = optimalpolicy(para,Πprime,μ,ε).Π
+    # compute f at each node
+    fvals = [f(X[i,:]) for i in 1:size(X,1)]
+    f̂ = Interpoland(basis,fvals)
+    return f̂
 end;
 
 
@@ -137,20 +143,20 @@ end;
 
 Solves the bellman equation for a given V0
 """
-function solvebellman(para::MParameters,B0::Interpoland)
+function solvebellman(para::MParameters, Π0::Interpoland)
     diff = 1
     #Iterate of Bellman Map until difference in coefficients goes to zero
     while diff > 1e-6
-        B = bellmanmap(para,B0)
-        diff = norm(B.coefs-B0.coefs,Inf)
-        B0 = B
+        Π = bellmanmap(para,Π0)
+        diff = norm(Π.coefs-Π0.coefs,Inf)
+        Π0 = Π
     end
-    mubasis = B0.mubasis
-    munodes = nodes(mubasis)[1]::Vector{Float64}
-    #remember optimalpolicy also returns the argmax
-    muprime = map(μ->optimalpolicy(para,B0,μ).muprime,munodes)
-    #Now get policies
-    return Interpoland(mubasis,muprime),B0
+    # Now getting the policy rules using the interpolated value function
+    pol_basis = Π0.basis
+    pol_nodes = nodes(pol_basis)[1]
+    pol(μ,ε) = optimalpolicy(para,Π0,μ,ε).μ'
+    pol_vals = [pol(X[i,:]) for i in 1:size(pol_nodes,1)]
+    return Interpoland(pol_basis,pol_vals),Π0
 end;
 
 
@@ -159,24 +165,18 @@ end;
 
 Initializes V0(k) = 0 using the kgrid of para
 """
-function getB0(para::MParameters)
+function getΠ0(para::MParameters)
     @unpack mugrid,spline_order = para
+    # Using splines for mu and chebyshev for epsilon
+    mu_basis = SplineParams(mugrid,0,spline_order)
+    ε_basis = ChebParams(3,-Inf,Inf)
+    basis = Basis(mu_basis,ε_basis)
 
-    mubasis = Basis(SplineParams(mugrid,0,spline_order))
-
-    return Interpoland(mubasis,μ->0 .*μ)
+    return Interpoland(basis,(μ,ε)-> 0 .* μ .* ε)
 end
 
 para = MParameters()
-muprime,B = solvebellman(para,getB0(para));
-
-
-
-
-
-
-
-
+muprime,B = solvebellman(para,getΠ0(para));
 
 ```
 
