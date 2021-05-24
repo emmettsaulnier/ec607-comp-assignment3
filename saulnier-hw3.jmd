@@ -20,7 +20,7 @@ using Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
     μe::Float64 = 0.0   # Mean of random shoc
     σe::Float64 = 0.1   # SD of random shock  
 
-    mugrid::Vector{Float64} = LinRange(0.05,3,20)
+    mugrid::Vector{Float64} = LinRange(0.05,3,30)
     spline_order::Int = 3
 
 end;
@@ -68,18 +68,36 @@ Let $\mu_{i,t}=\frac{P_{i,t}}{a_{i,t}\bar W}$ be the markup (price over marginal
 ```
 given $\mu_{i,-1}$
 
+**Let the profit for firm $i$ in period $t$ before paying switching costs be given by $\pi_{it}$ as below**
+
+```math
+\pi_{it} = [P_{it} - a_{it}\bar W]D_{it} \\
+\pi_{it} = [\mu_{it}a_{it}\bar W  - a_{it}\bar W]a_{it}^{\gamma - 1}\left(\mu_{it}a_{it}\bar W\right)^{-\gamma} \\
+\pi_{it} = \bar W^{1-\gamma}(\mu_{it} - 1)\mu_{it}^{-\gamma}
+```
+
+**Where I have used that $P_{it} = \mu_{it}a_{it}\bar W$ and $D_{it} = a_{it}^{\gamma - 1}\left(\mu_{it}a_{it}\bar W\right)^{-\gamma}$. A firm not changing its prices in a period, $P_{i,t-1} = P_{i,t}$ can be written in terms of markups as follows, noting that $\frac{a_{i,t-1}}{a_{i,t}} = \frac{a_{i,t-1}}{a_{i,t-1}\exp{ε_{i,t}}} = \frac{1}{\exp{ε_{i,t}}}$**
+
+```math
+\mu_{i,t}a_{i,t}\bar W = \mu_{i,t-1}a_{i,t-1}\bar W \\
+\mu_{i,t} = \mu_{i,t-1}\frac{a_{i,t-1}}{a_{i,t}} \\
+\mu_{i,t} = \frac{\mu_{i,t-1}}{\exp{\varepsilon_{i,t}}} 
+```
+
+**Thus, we can substitute these expressions into the firm's problem to arrive at the version of the firm's problem described in the question.** 
+
 
 ## Problem 2  
 Let $V(\mu)$ be the value of a firm entering with markup $\mu$ (this is after it's current quality shock $\epsilon$ is realized so $\mu=\frac{\mu\_}{\exp(\epsilon_i)}$ where $\mu\_$ is last period's markup) which chooses not to change prices this period.  Let $J$ be the value of a firm which elects to change prices this period (why doesn't this depend on $\mu$?).  Write down the Bellman equation(s) of the firm.
 
-**The Bellman Equation can be written as** $Π(μ) = \max{V(μ), J}$ **where**
+**The Bellman Equation can be written as $Π(μ) = \max\{V(μ), J\}$ where**
 
 ```math
-V(\mu) = W̄^{1-γ}*(μ - 1)*μ^{-γ} + β E[Π(μ)]
-J = \max_{μ_0}   W̄^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E[Π(μ_0)] 
+V(\mu) = \bar W^{1-γ}*(μ - 1)*μ^{-γ} + β E[Π(μ)] \\
+J = \max_{μ_0}  \bar W^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E[Π(μ_0)] 
 ```
 
-$V(μ)$ **is the value a firm gets if they do not change their prices, and $J$ is the value a firm gets if they do change their prices.**
+**$V(μ)$ is the value a firm gets if they do not change their prices, and $J$ is the value a firm gets if they do change their prices. $J$ does not depend on $\mu$ since future markups only depends on future quality shocks and then current markup choice.**
 
 ## Problem 3  
 Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =0.01$ and $\sigma_\epsilon = 0.1$.  Write a program to solve the problem of the firm. (Use Gauss-Hermite quadrature to compute the expectation over $\epsilon_i$)
@@ -107,16 +125,13 @@ end;
 Computes optimal policy using continuation value function V and current capital
 level k given parameters in para.
 """
-function optimalpolicy(para::MParameters,Πprime,μ_,ε)
+function optimalpolicy(para::MParameters,Πprime,μ)
     @unpack β,γ,κ,W̄,μe,σe,mugrid = para
-    mu_bounds = [mugrid[1],mugrid[end]]
-    # Calculating this period's markup given this period's shock and last period's markup
-    μ = μ_/exp(ε)
     # Value if the firm does not change prices  
-    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(εprime->Πprime([μ,εprime]),μe,σe,10)
+    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(εprime->Πprime(μ/εprime),μe,σe,10)
     # Value if the firm does change prices  
-    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(εprime->Πprime([μo,εprime]),μe,σe,10))
-    Jresult = optimize(J,mu_bounds[1],mu_bounds[2])
+    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(εprime->Πprime(μo/εprime),μe,σe,10))
+    Jresult = optimize(J,mugrid[1],mugrid[end])
     # Choosing whether to keep prices or change prices 
     if V >= -Jresult.minimum 
         return(μprime = μ, Π = V)
@@ -126,22 +141,19 @@ function optimalpolicy(para::MParameters,Πprime,μ_,ε)
 end;
 
 
-
 """
     bellmanmap(Vprime,para::NCParameters) 
 
 Apply the bellman map given continuation value function Vprime and shock ε 
 """
 function bellmanmap(para::MParameters, Πprime::Interpoland)
-    # Getting the basis and nodes for (μ,ε) from Πprime
-    basis = Πprime.basis
-    X = nodes(basis)[1]
-    # Function to be approximated, x[1] is μ and x[2] is ε
-    f(x) = optimalpolicy(para,Πprime,x[1],x[2]).Π
-    # compute f at each node
-    fvals = [f(X[i,:]) for i in 1:size(X,1)]
-    f̂ = Interpoland(basis,fvals)
-    return f̂
+    # Getting the basis and nodes for μ from Πprime
+    mubasis = Πprime.basis
+    munodes = nodes(mubasis)[1]
+    # Calculating value function at nodes and then inerpolating
+    Π = map(μ->optimalpolicy(para,Πprime,μ).Π,munodes)
+    Π̂ = Interpoland(mubasis,Π)
+    return Π̂
 end;
 
 
@@ -156,14 +168,16 @@ function solvebellman(para::MParameters, Π0::Interpoland)
     while diff > 1e-6
         Π = bellmanmap(para,Π0)
         diff = norm(Π.coefs-Π0.coefs,Inf)
+        println("Diff is: $diff")
         Π0 = Π
     end
     # Now getting the policy rules using the interpolated value function
     pol_basis = Π0.basis
     pol_nodes = nodes(pol_basis)[1]
-    pol(x) = optimalpolicy(para,Π0,x[1],x[2]).μprime
-    pol_vals = [pol(pol_nodes[i,:]) for i in 1:size(pol_nodes,1)]
-    return Interpoland(pol_basis,pol_vals),Π0
+    # Calculating function values at nodes and interpolating
+    pol_vals = map(μ->optimalpolicy(para,Πprime,μ).μprime,pol_nodes)
+    μ̂ = Interpoland(pol_basis,pol_vals)
+    return μ̂,Π0
 end;
 
 
@@ -173,14 +187,11 @@ end;
 Initializes V0(k) = 0 using the kgrid of para
 """
 function getΠ0(para::MParameters)
-    @unpack μe,σe,mugrid,spline_order = para
+    @unpack mugrid,spline_order = para
     # Using splines for mu and chebyshev for epsilon
-    mu_basis = SplineParams(mugrid,0,spline_order)
-    ε_basis = ChebParams(3, quantile.(Normal(μe,σe), [0.001])[1] ,quantile.(Normal(μe,σe), [0.999])[1])
-    basis = Basis(mu_basis,ε_basis)
+    mubasis = Basis(SplineParams(mugrid,0,spline_order))
     # Starting with Π0 = 0
-    zero = [0 for i in 1:size(nodes(basis)[1],1)]
-    return Interpoland(basis,zero)
+    return Interpoland(mubasis,μ->0 .*μ)
 end
 
 para = MParameters()
@@ -191,13 +202,15 @@ para = MParameters()
 ## Problem 4  
 When do firms change their prices? (You should find that firms change their prices once markups are outside of a certain range of the optimal markup)
 
+**The plot below shows what markup the firm chooses over a range of markups inherited from the previous period. The section of the plot where the optimal policy rule overlaps with the 45 degree line is the range where the firm does not change prices.**
+
 ```julia
-
-plot(
-    layer(y->muprime([y,0.3]),0,1,color=["FuncDtioDn"]),
-    layer(y->y,0,1,color=["yellow"]),
-            Guide.xlabel("μ"),Guide.ylabel("Optimal Policy"))
-
+# Plotting optimal policy rules for range of given markups
+#plot(
+#    layer(y->muprime(y),0,3,color=["Estimated Policy Rule"]),
+#    layer(y->y,0,3,color=["45 Deg line"]),
+#    Guide.xlabel("μ"),Guide.ylabel("Optimal Policy")
+#)
 ```
 
 
@@ -209,6 +222,90 @@ Write a program to simulate $100,000$ firms to compute an ergodic distribution o
 
 in the steady state.
 
+```julia 
+# Taking initial draws 
+N = 100000
+ε0 = rand(Normal(para.μe, para.σe), N)
+μ0 = 1 ./exp.(ε0)
+ε1 = rand(Normal(para.μe, para.σe), N)
+μ1 = μ0 ./ exp.(ε1)
+
+
+
+# Finds the average number of firms changing prices and the average size of price change
+function calc_pricechange(κ, σe)
+    # Setting parameter values
+    para.κ = κ
+    para.σe = σe
+    # Solving bellman for those parameters 
+    muprime  = solvebellman(para)
+    # Calculating Optimal Policy Choices 
+    μopt = muprime.(μ1)
+    I = zeroes(N)
+    Δ = zeroes(N)
+    for i in 1:N
+        if μopt[i] == μ1[i] # No Price change
+            I[i] = 0
+            Δ[i] = 0
+        else 
+            I[i] = 1
+            Δ[i] = W̄*exp(ε0[i])*(μopt[i]*exp(ε1[i]) - μ0)
+        end 
+    end 
+    # Percentage of price changes and average size of price changes 
+    return (perc_change = mean(I), avg_p_change = mean(Δ))
+end 
+
+# Finds κ and σe to calibrate  
+using NLsolve
+res = nlsolve(calc_pricechange,[0.219,0.095])
+
+println("Did the root solver converge: $(converged(res))")
+println("What was the solution: $(res.zero)")
+println("Check f at solution: $(f(res.zero))")
+
+# Finding calibrated model 
+para.κ = res.zero[1]
+para.σe = res.zero[2]
+μprime_cal = solvebellman(para)
+
+# Average markup in steady state
+function avg_markup(μ) 
+    return mean(μ.^(1-para.γ))^(1/(1-para.γ))
+end 
+
+# Iterates the value function to converge to steady state
+function compute_steady_state(μ,T)
+    avg_μ = zeros(T + 1)
+    avg_μ[1] = avg_markup(μ)
+    for i in 1:T
+        μ_new = μprime_cal(μ_shock)
+        avg_μ[i+1] = avg_markup(μ_new)
+    end 
+    return (avg_μ = avg_μ, μ̄ = μ_new)
+end
+
+# Finding markup in steady state starting from initial distrubution
+μopt = μprime_cal(μ1)
+avg_μ,μ̄ = compute_steady_state(μopt, 500)
+avg_μ_ss = avg_μ[end]
+println("The average markup in steady state is: $avg_μ_ss")  
+
+```
+
 
 ## Problem 6  
 Suppose that wage costs unexpectly increase by 5\% (this will reduce the markups of all firms proportionally by 5\%).  Starting from this new distribution simulate the path of of the average markup.  How long does it take firms to adjust prices to pass along these new costs?
+
+```julia 
+
+# Simulating shock to 
+T = 100
+μ_shock = 0.95 .* μ̄ 
+avg_μ_path = compute_steady_state(μ_shock, T).avg_μ
+
+# Plotting the results 
+plot(y = compute_steady_state(μ_shock, T).avg_μ)
+
+
+```
