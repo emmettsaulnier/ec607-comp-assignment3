@@ -670,12 +670,13 @@ div.title {text-align: center;}
     </span><span class='hljl-n'>β</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>0.9981</span><span class='hljl-t'> </span><span class='hljl-cs'># Monthly Discount Factor</span><span class='hljl-t'>
     </span><span class='hljl-n'>γ</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>3.0</span><span class='hljl-t'>    </span><span class='hljl-cs'># Elasticity of substitution</span><span class='hljl-t'>
     </span><span class='hljl-n'>κ</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>0.01</span><span class='hljl-t'>   </span><span class='hljl-cs'># Cost of changing prices    </span><span class='hljl-t'>
-    </span><span class='hljl-n'>μ</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>0.0</span><span class='hljl-t'>    </span><span class='hljl-cs'># Mean of random shoc</span><span class='hljl-t'>
-    </span><span class='hljl-n'>σ</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>0.1</span><span class='hljl-t'>    </span><span class='hljl-cs'># SD of random shock  </span><span class='hljl-t'>
+    </span><span class='hljl-n'>W̄</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-t'>      </span><span class='hljl-cs'># Wages</span><span class='hljl-t'>
+    </span><span class='hljl-n'>μe</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>0.0</span><span class='hljl-t'>   </span><span class='hljl-cs'># Mean of random shoc</span><span class='hljl-t'>
+    </span><span class='hljl-n'>σe</span><span class='hljl-oB'>::</span><span class='hljl-n'>Float64</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nfB'>0.1</span><span class='hljl-t'>   </span><span class='hljl-cs'># SD of random shock  </span><span class='hljl-t'>
 
-    </span><span class='hljl-n'>kgrid</span><span class='hljl-oB'>::</span><span class='hljl-nf'>Vector</span><span class='hljl-p'>{</span><span class='hljl-n'>Float64</span><span class='hljl-p'>}</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>LinRange</span><span class='hljl-p'>(</span><span class='hljl-nfB'>0.05</span><span class='hljl-p'>,</span><span class='hljl-nfB'>0.5</span><span class='hljl-p'>,</span><span class='hljl-ni'>20</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-n'>mugrid</span><span class='hljl-oB'>::</span><span class='hljl-nf'>Vector</span><span class='hljl-p'>{</span><span class='hljl-n'>Float64</span><span class='hljl-p'>}</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>LinRange</span><span class='hljl-p'>(</span><span class='hljl-nfB'>0.05</span><span class='hljl-p'>,</span><span class='hljl-nfB'>0.5</span><span class='hljl-p'>,</span><span class='hljl-ni'>20</span><span class='hljl-p'>)</span><span class='hljl-t'>
     </span><span class='hljl-n'>spline_order</span><span class='hljl-oB'>::</span><span class='hljl-n'>Int</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-ni'>3</span><span class='hljl-t'>
-    
+
 </span><span class='hljl-k'>end</span><span class='hljl-p'>;</span><span class='hljl-t'>
 
 </span><span class='hljl-cs'># Setting plot themes</span><span class='hljl-t'>
@@ -713,13 +714,21 @@ D_{i,t}=a_{i,t}^{\gamma-1}\left(P_{i,t}\right)^{-\gamma}.
 <p>given <span class="math">$\mu_{i,-1}$</span></p>
 <h2>Problem 2</h2>
 <p>Let <span class="math">$V(\mu)$</span> be the value of a firm entering with markup <span class="math">$\mu$</span> &#40;this is after it&#39;s current quality shock <span class="math">$\epsilon$</span> is realized so <span class="math">$\mu=\frac{\mu\_}{\exp(\epsilon_i)}$</span> where <span class="math">$\mu\_$</span> is last period&#39;s markup&#41; which chooses not to change prices this period.  Let <span class="math">$J$</span> be the value of a firm which elects to change prices this period &#40;why doesn&#39;t this depend on <span class="math">$\mu$</span>?&#41;.  Write down the Bellman equation&#40;s&#41; of the firm.</p>
+<p><strong>The Bellman Equation can be written as</strong> <span class="math">$Π(μ) = \max{V(μ), J}$</span> <strong>where</strong></p>
+<p class="math">\[
+V(\mu) = W̄^{1-γ}*(μ - 1)*μ^{-γ} + β E[Π(μ)]
+J = \max_{μ_0}   W̄^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E[Π(μ_0)] 
+\]</p>
+<p class="math">\[
+V(μ)
+\]</p>
+<p><strong>is the value a firm gets if they do not change their prices, and <span class="math">$J$</span> is the value a firm gets if they do change their prices.</strong></p>
 <h2>Problem 3</h2>
 <p>Let <span class="math">$\beta=0.9981$</span> &#40;targeting a monthly discount factor&#41;, <span class="math">$\gamma =3$</span>, <span class="math">$\kappa =0.01$</span> and <span class="math">$\sigma_\epsilon = 0.1$</span>.  Write a program to solve the problem of the firm. &#40;Use Gauss-Hermite quadrature to compute the expectation over <span class="math">$\epsilon_i$</span>&#41;</p>
 
 
 <pre class='hljl'>
-<span class='hljl-n'>param</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>MParameters</span><span class='hljl-p'>()</span><span class='hljl-t'>
-
+<span class='hljl-k'>using</span><span class='hljl-t'> </span><span class='hljl-n'>Optim</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>BasisMatrices</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>Distributions</span><span class='hljl-t'>
 </span><span class='hljl-cs'># Gauss-Hermite Quadrature for expected value of ϵ</span><span class='hljl-t'>
 </span><span class='hljl-s'>&quot;&quot;&quot;
     expectation_normal(h,μ,σ,N)
@@ -730,23 +739,115 @@ N point Gauss-Hermite quadrature
 </span><span class='hljl-k'>function</span><span class='hljl-t'> </span><span class='hljl-nf'>expectation_normal</span><span class='hljl-p'>(</span><span class='hljl-n'>h</span><span class='hljl-p'>,</span><span class='hljl-n'>μ</span><span class='hljl-p'>,</span><span class='hljl-n'>σ</span><span class='hljl-p'>,</span><span class='hljl-n'>N</span><span class='hljl-p'>)</span><span class='hljl-t'>
     </span><span class='hljl-n'>ξ</span><span class='hljl-p'>,</span><span class='hljl-n'>w</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>gausshermite</span><span class='hljl-p'>(</span><span class='hljl-n'>N</span><span class='hljl-p'>)</span><span class='hljl-t'>
     </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>sqrt</span><span class='hljl-p'>(</span><span class='hljl-ni'>2</span><span class='hljl-p'>)</span><span class='hljl-oB'>.*</span><span class='hljl-n'>σ</span><span class='hljl-oB'>.*</span><span class='hljl-n'>ξ</span><span class='hljl-t'> </span><span class='hljl-oB'>.+</span><span class='hljl-t'> </span><span class='hljl-n'>μ</span><span class='hljl-t'>
-
     </span><span class='hljl-k'>return</span><span class='hljl-t'> </span><span class='hljl-nf'>sum</span><span class='hljl-p'>(</span><span class='hljl-n'>w</span><span class='hljl-p'>[</span><span class='hljl-n'>i</span><span class='hljl-p'>]</span><span class='hljl-oB'>*</span><span class='hljl-nf'>h</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>[</span><span class='hljl-n'>i</span><span class='hljl-p'>])</span><span class='hljl-t'> </span><span class='hljl-k'>for</span><span class='hljl-t'> </span><span class='hljl-n'>i</span><span class='hljl-t'> </span><span class='hljl-kp'>in</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-oB'>:</span><span class='hljl-n'>N</span><span class='hljl-p'>)</span><span class='hljl-oB'>/</span><span class='hljl-nf'>sqrt</span><span class='hljl-p'>(</span><span class='hljl-n'>pi</span><span class='hljl-p'>)</span><span class='hljl-t'>
 </span><span class='hljl-k'>end</span><span class='hljl-p'>;</span><span class='hljl-t'>
 
-</span><span class='hljl-n'>exp_inv</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>expectation_normal</span><span class='hljl-p'>((</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-oB'>-&gt;</span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-p'>(</span><span class='hljl-oB'>-</span><span class='hljl-ni'>1</span><span class='hljl-p'>),</span><span class='hljl-n'>param</span><span class='hljl-oB'>.</span><span class='hljl-n'>μ</span><span class='hljl-p'>,</span><span class='hljl-n'>param</span><span class='hljl-oB'>.</span><span class='hljl-n'>σ</span><span class='hljl-p'>,</span><span class='hljl-ni'>10</span><span class='hljl-p'>)</span><span class='hljl-t'> 
 
-</span><span class='hljl-cs'># Using Interpolation</span>
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    optimalpolicy(para::NCParameters,Vprime,k)
+
+Computes optimal policy using continuation value function V and current capital
+level k given parameters in para.
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-k'>function</span><span class='hljl-t'> </span><span class='hljl-nf'>optimalpolicy</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-oB'>::</span><span class='hljl-n'>MParameters</span><span class='hljl-p'>,</span><span class='hljl-n'>Πprime</span><span class='hljl-p'>,</span><span class='hljl-n'>μ_</span><span class='hljl-p'>,</span><span class='hljl-n'>ε</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-nd'>@unpack</span><span class='hljl-t'> </span><span class='hljl-n'>β</span><span class='hljl-p'>,</span><span class='hljl-n'>γ</span><span class='hljl-p'>,</span><span class='hljl-n'>κ</span><span class='hljl-p'>,</span><span class='hljl-n'>W̄</span><span class='hljl-p'>,</span><span class='hljl-n'>μe</span><span class='hljl-p'>,</span><span class='hljl-n'>σe</span><span class='hljl-p'>,</span><span class='hljl-n'>mugrid</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>para</span><span class='hljl-t'>
+    </span><span class='hljl-n'>mu_bounds</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-n'>mugrid</span><span class='hljl-p'>[</span><span class='hljl-ni'>1</span><span class='hljl-p'>],</span><span class='hljl-n'>mugrid</span><span class='hljl-p'>[</span><span class='hljl-k'>end</span><span class='hljl-p'>]]</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Calculating this period&#39;s markup given this period&#39;s shock and last period&#39;s markup</span><span class='hljl-t'>
+    </span><span class='hljl-n'>μ</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>μ_</span><span class='hljl-oB'>/</span><span class='hljl-nf'>exp</span><span class='hljl-p'>(</span><span class='hljl-n'>ε</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Value if the firm does not change prices  </span><span class='hljl-t'>
+    </span><span class='hljl-n'>V</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>W̄</span><span class='hljl-oB'>^</span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-oB'>-</span><span class='hljl-n'>γ</span><span class='hljl-p'>)</span><span class='hljl-oB'>*</span><span class='hljl-p'>(</span><span class='hljl-n'>μ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-p'>)</span><span class='hljl-oB'>*</span><span class='hljl-n'>μ</span><span class='hljl-oB'>^</span><span class='hljl-p'>(</span><span class='hljl-oB'>-</span><span class='hljl-n'>γ</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>+</span><span class='hljl-t'> </span><span class='hljl-n'>β</span><span class='hljl-oB'>*</span><span class='hljl-nf'>expectation_normal</span><span class='hljl-p'>(</span><span class='hljl-n'>εprime</span><span class='hljl-oB'>-&gt;</span><span class='hljl-nf'>Πprime</span><span class='hljl-p'>([</span><span class='hljl-n'>μ</span><span class='hljl-p'>,</span><span class='hljl-n'>εprime</span><span class='hljl-p'>]),</span><span class='hljl-n'>μe</span><span class='hljl-p'>,</span><span class='hljl-n'>σe</span><span class='hljl-p'>,</span><span class='hljl-ni'>10</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Value if the firm does change prices  </span><span class='hljl-t'>
+    </span><span class='hljl-nf'>J</span><span class='hljl-p'>(</span><span class='hljl-n'>μo</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-n'>W̄</span><span class='hljl-oB'>^</span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-oB'>-</span><span class='hljl-n'>γ</span><span class='hljl-p'>)</span><span class='hljl-oB'>*</span><span class='hljl-p'>(</span><span class='hljl-n'>μo</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-p'>)</span><span class='hljl-oB'>*</span><span class='hljl-n'>μo</span><span class='hljl-oB'>^</span><span class='hljl-p'>(</span><span class='hljl-oB'>-</span><span class='hljl-n'>γ</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>κ</span><span class='hljl-t'> </span><span class='hljl-oB'>+</span><span class='hljl-t'> </span><span class='hljl-n'>β</span><span class='hljl-oB'>*</span><span class='hljl-nf'>expectation_normal</span><span class='hljl-p'>(</span><span class='hljl-n'>εprime</span><span class='hljl-oB'>-&gt;</span><span class='hljl-nf'>Πprime</span><span class='hljl-p'>([</span><span class='hljl-n'>μo</span><span class='hljl-p'>,</span><span class='hljl-n'>εprime</span><span class='hljl-p'>]),</span><span class='hljl-n'>μe</span><span class='hljl-p'>,</span><span class='hljl-n'>σe</span><span class='hljl-p'>,</span><span class='hljl-ni'>10</span><span class='hljl-p'>))</span><span class='hljl-t'>
+    </span><span class='hljl-n'>Jresult</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>optimize</span><span class='hljl-p'>(</span><span class='hljl-n'>J</span><span class='hljl-p'>,</span><span class='hljl-n'>mu_bounds</span><span class='hljl-p'>[</span><span class='hljl-ni'>1</span><span class='hljl-p'>],</span><span class='hljl-n'>mu_bounds</span><span class='hljl-p'>[</span><span class='hljl-ni'>2</span><span class='hljl-p'>])</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Choosing whether to keep prices or change prices </span><span class='hljl-t'>
+    </span><span class='hljl-k'>if</span><span class='hljl-t'> </span><span class='hljl-n'>V</span><span class='hljl-t'> </span><span class='hljl-oB'>&gt;=</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-n'>Jresult</span><span class='hljl-oB'>.</span><span class='hljl-n'>minimum</span><span class='hljl-t'> 
+        </span><span class='hljl-k'>return</span><span class='hljl-p'>(</span><span class='hljl-n'>μprime</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>μ</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>Π</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>V</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-k'>else</span><span class='hljl-t'> 
+        </span><span class='hljl-k'>return</span><span class='hljl-p'>(</span><span class='hljl-n'>μprime</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>Jresult</span><span class='hljl-oB'>.</span><span class='hljl-n'>minimizer</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>Π</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-n'>Jresult</span><span class='hljl-oB'>.</span><span class='hljl-n'>minimum</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-k'>end</span><span class='hljl-t'>
+</span><span class='hljl-k'>end</span><span class='hljl-p'>;</span><span class='hljl-t'>
+
+
+
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    bellmanmap(Vprime,para::NCParameters) 
+
+Apply the bellman map given continuation value function Vprime and shock ε 
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-k'>function</span><span class='hljl-t'> </span><span class='hljl-nf'>bellmanmap</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-oB'>::</span><span class='hljl-n'>MParameters</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>Πprime</span><span class='hljl-oB'>::</span><span class='hljl-n'>Interpoland</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Getting the basis and nodes for (μ,ε) from Πprime</span><span class='hljl-t'>
+    </span><span class='hljl-n'>basis</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>Πprime</span><span class='hljl-oB'>.</span><span class='hljl-n'>basis</span><span class='hljl-t'>
+    </span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>nodes</span><span class='hljl-p'>(</span><span class='hljl-n'>basis</span><span class='hljl-p'>)[</span><span class='hljl-ni'>1</span><span class='hljl-p'>]</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Function to be approximated, x[1] is μ and x[2] is ε</span><span class='hljl-t'>
+    </span><span class='hljl-nf'>f</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>optimalpolicy</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-p'>,</span><span class='hljl-n'>Πprime</span><span class='hljl-p'>,</span><span class='hljl-n'>x</span><span class='hljl-p'>[</span><span class='hljl-ni'>1</span><span class='hljl-p'>],</span><span class='hljl-n'>x</span><span class='hljl-p'>[</span><span class='hljl-ni'>2</span><span class='hljl-p'>])</span><span class='hljl-oB'>.</span><span class='hljl-n'>Π</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># compute f at each node</span><span class='hljl-t'>
+    </span><span class='hljl-n'>fvals</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-nf'>f</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-p'>[</span><span class='hljl-n'>i</span><span class='hljl-p'>,</span><span class='hljl-oB'>:</span><span class='hljl-p'>])</span><span class='hljl-t'> </span><span class='hljl-k'>for</span><span class='hljl-t'> </span><span class='hljl-n'>i</span><span class='hljl-t'> </span><span class='hljl-kp'>in</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-oB'>:</span><span class='hljl-nf'>size</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-p'>,</span><span class='hljl-ni'>1</span><span class='hljl-p'>)]</span><span class='hljl-t'>
+    </span><span class='hljl-n'>f̂</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>Interpoland</span><span class='hljl-p'>(</span><span class='hljl-n'>basis</span><span class='hljl-p'>,</span><span class='hljl-n'>fvals</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-k'>return</span><span class='hljl-t'> </span><span class='hljl-n'>f̂</span><span class='hljl-t'>
+</span><span class='hljl-k'>end</span><span class='hljl-p'>;</span><span class='hljl-t'>
+
+
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    solvebellman(para::NCParameters,V0::Interpoland)
+
+Solves the bellman equation for a given V0
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-k'>function</span><span class='hljl-t'> </span><span class='hljl-nf'>solvebellman</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-oB'>::</span><span class='hljl-n'>MParameters</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>Π0</span><span class='hljl-oB'>::</span><span class='hljl-n'>Interpoland</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-n'>diff</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-t'>
+    </span><span class='hljl-cs'>#Iterate of Bellman Map until difference in coefficients goes to zero</span><span class='hljl-t'>
+    </span><span class='hljl-k'>while</span><span class='hljl-t'> </span><span class='hljl-n'>diff</span><span class='hljl-t'> </span><span class='hljl-oB'>&gt;</span><span class='hljl-t'> </span><span class='hljl-nfB'>1e-6</span><span class='hljl-t'>
+        </span><span class='hljl-n'>Π</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>bellmanmap</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-p'>,</span><span class='hljl-n'>Π0</span><span class='hljl-p'>)</span><span class='hljl-t'>
+        </span><span class='hljl-n'>diff</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>norm</span><span class='hljl-p'>(</span><span class='hljl-n'>Π</span><span class='hljl-oB'>.</span><span class='hljl-n'>coefs</span><span class='hljl-oB'>-</span><span class='hljl-n'>Π0</span><span class='hljl-oB'>.</span><span class='hljl-n'>coefs</span><span class='hljl-p'>,</span><span class='hljl-n'>Inf</span><span class='hljl-p'>)</span><span class='hljl-t'>
+        </span><span class='hljl-n'>Π0</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>Π</span><span class='hljl-t'>
+    </span><span class='hljl-k'>end</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Now getting the policy rules using the interpolated value function</span><span class='hljl-t'>
+    </span><span class='hljl-n'>pol_basis</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>Π0</span><span class='hljl-oB'>.</span><span class='hljl-n'>basis</span><span class='hljl-t'>
+    </span><span class='hljl-n'>pol_nodes</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>nodes</span><span class='hljl-p'>(</span><span class='hljl-n'>pol_basis</span><span class='hljl-p'>)[</span><span class='hljl-ni'>1</span><span class='hljl-p'>]</span><span class='hljl-t'>
+    </span><span class='hljl-nf'>pol</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>optimalpolicy</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-p'>,</span><span class='hljl-n'>Π0</span><span class='hljl-p'>,</span><span class='hljl-n'>x</span><span class='hljl-p'>[</span><span class='hljl-ni'>1</span><span class='hljl-p'>],</span><span class='hljl-n'>x</span><span class='hljl-p'>[</span><span class='hljl-ni'>2</span><span class='hljl-p'>])</span><span class='hljl-oB'>.</span><span class='hljl-n'>μprime</span><span class='hljl-t'>
+    </span><span class='hljl-n'>pol_vals</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-nf'>pol</span><span class='hljl-p'>(</span><span class='hljl-n'>pol_nodes</span><span class='hljl-p'>[</span><span class='hljl-n'>i</span><span class='hljl-p'>,</span><span class='hljl-oB'>:</span><span class='hljl-p'>])</span><span class='hljl-t'> </span><span class='hljl-k'>for</span><span class='hljl-t'> </span><span class='hljl-n'>i</span><span class='hljl-t'> </span><span class='hljl-kp'>in</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-oB'>:</span><span class='hljl-nf'>size</span><span class='hljl-p'>(</span><span class='hljl-n'>pol_nodes</span><span class='hljl-p'>,</span><span class='hljl-ni'>1</span><span class='hljl-p'>)]</span><span class='hljl-t'>
+    </span><span class='hljl-k'>return</span><span class='hljl-t'> </span><span class='hljl-nf'>Interpoland</span><span class='hljl-p'>(</span><span class='hljl-n'>pol_basis</span><span class='hljl-p'>,</span><span class='hljl-n'>pol_vals</span><span class='hljl-p'>),</span><span class='hljl-n'>Π0</span><span class='hljl-t'>
+</span><span class='hljl-k'>end</span><span class='hljl-p'>;</span><span class='hljl-t'>
+
+
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    getV0(para::NCParameters)
+
+Initializes V0(k) = 0 using the kgrid of para
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-k'>function</span><span class='hljl-t'> </span><span class='hljl-nf'>getΠ0</span><span class='hljl-p'>(</span><span class='hljl-n'>para</span><span class='hljl-oB'>::</span><span class='hljl-n'>MParameters</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-nd'>@unpack</span><span class='hljl-t'> </span><span class='hljl-n'>μe</span><span class='hljl-p'>,</span><span class='hljl-n'>σe</span><span class='hljl-p'>,</span><span class='hljl-n'>mugrid</span><span class='hljl-p'>,</span><span class='hljl-n'>spline_order</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>para</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Using splines for mu and chebyshev for epsilon</span><span class='hljl-t'>
+    </span><span class='hljl-n'>mu_basis</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>SplineParams</span><span class='hljl-p'>(</span><span class='hljl-n'>mugrid</span><span class='hljl-p'>,</span><span class='hljl-ni'>0</span><span class='hljl-p'>,</span><span class='hljl-n'>spline_order</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-n'>ε_basis</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>ChebParams</span><span class='hljl-p'>(</span><span class='hljl-ni'>3</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>quantile</span><span class='hljl-oB'>.</span><span class='hljl-p'>(</span><span class='hljl-nf'>Normal</span><span class='hljl-p'>(</span><span class='hljl-n'>μe</span><span class='hljl-p'>,</span><span class='hljl-n'>σe</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-nfB'>0.001</span><span class='hljl-p'>])[</span><span class='hljl-ni'>1</span><span class='hljl-p'>]</span><span class='hljl-t'> </span><span class='hljl-p'>,</span><span class='hljl-n'>quantile</span><span class='hljl-oB'>.</span><span class='hljl-p'>(</span><span class='hljl-nf'>Normal</span><span class='hljl-p'>(</span><span class='hljl-n'>μe</span><span class='hljl-p'>,</span><span class='hljl-n'>σe</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-nfB'>0.999</span><span class='hljl-p'>])[</span><span class='hljl-ni'>1</span><span class='hljl-p'>])</span><span class='hljl-t'>
+    </span><span class='hljl-n'>basis</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>Basis</span><span class='hljl-p'>(</span><span class='hljl-n'>mu_basis</span><span class='hljl-p'>,</span><span class='hljl-n'>ε_basis</span><span class='hljl-p'>)</span><span class='hljl-t'>
+    </span><span class='hljl-cs'># Starting with Π0 = 0</span><span class='hljl-t'>
+    </span><span class='hljl-n'>zero</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-ni'>0</span><span class='hljl-t'> </span><span class='hljl-k'>for</span><span class='hljl-t'> </span><span class='hljl-n'>i</span><span class='hljl-t'> </span><span class='hljl-kp'>in</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-oB'>:</span><span class='hljl-nf'>size</span><span class='hljl-p'>(</span><span class='hljl-nf'>nodes</span><span class='hljl-p'>(</span><span class='hljl-n'>basis</span><span class='hljl-p'>)[</span><span class='hljl-ni'>1</span><span class='hljl-p'>],</span><span class='hljl-ni'>1</span><span class='hljl-p'>)]</span><span class='hljl-t'>
+    </span><span class='hljl-k'>return</span><span class='hljl-t'> </span><span class='hljl-nf'>Interpoland</span><span class='hljl-p'>(</span><span class='hljl-n'>basis</span><span class='hljl-p'>,</span><span class='hljl-n'>zero</span><span class='hljl-p'>)</span><span class='hljl-t'>
+</span><span class='hljl-k'>end</span><span class='hljl-t'>
+
+</span><span class='hljl-n'>para</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>MParameters</span><span class='hljl-p'>()</span><span class='hljl-t'>
+</span><span class='hljl-cs'>#muprime,Π = solvebellman(para,getΠ0(para));</span>
 </pre>
 
-
-<pre class="output">
--1.8070251821549265e-16
-</pre>
 
 
 <h2>Problem 4</h2>
 <p>When do firms change their prices? &#40;You should find that firms change their prices once markups are outside of a certain range of the optimal markup&#41;</p>
+
+
+<pre class='hljl'>
+<span class='hljl-nf'>markupdiff</span><span class='hljl-p'>(</span><span class='hljl-n'>μ</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>muprime</span><span class='hljl-p'>(</span><span class='hljl-t'>
+
+</span><span class='hljl-nf'>plot</span><span class='hljl-p'>(</span><span class='hljl-nf'>layer</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-oB'>-&gt;</span><span class='hljl-nf'>muprime</span><span class='hljl-p'>([</span><span class='hljl-ni'>1</span><span class='hljl-p'>,</span><span class='hljl-n'>y</span><span class='hljl-p'>]),</span><span class='hljl-oB'>-</span><span class='hljl-nfB'>0.3</span><span class='hljl-p'>,</span><span class='hljl-nfB'>0.3</span><span class='hljl-p'>,</span><span class='hljl-n'>color</span><span class='hljl-oB'>=</span><span class='hljl-p'>[</span><span class='hljl-s'>&quot;FuncDtioDn&quot;</span><span class='hljl-p'>]),</span><span class='hljl-t'>
+            </span><span class='hljl-n'>Guide</span><span class='hljl-oB'>.</span><span class='hljl-nf'>xlabel</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;ε&quot;</span><span class='hljl-p'>),</span><span class='hljl-n'>Guide</span><span class='hljl-oB'>.</span><span class='hljl-nf'>ylabel</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;Optimal Policy&quot;</span><span class='hljl-p'>))</span>
+</pre>
+
+
+<pre class="julia-error">
+ERROR: syntax: incomplete: premature end of input
+</pre>
+
+
 <h2>Problem 5</h2>
 <p>Write a program to simulate <span class="math">$100,000$</span> firms to compute an ergodic distribution of firm markups.  Adjust <span class="math">$\kappa$</span> and <span class="math">$\sigma_\epsilon$</span> so that in the ergodic distribution 21.9\&#37; of firms change their price every month and the average size of price changes is <span class="math">$0.095$</span>. Compute the average markup</p>
 <p class="math">\[
@@ -761,7 +862,7 @@ N point Gauss-Hermite quadrature
         <div class="footer">
           <p>
             Published from <a href="saulnier-hw3.jmd">saulnier-hw3.jmd</a>
-            using <a href="http://github.com/JunoLab/Weave.jl">Weave.jl</a> v0.10.8 on 2021-05-21.
+            using <a href="http://github.com/JunoLab/Weave.jl">Weave.jl</a> v0.10.8 on 2021-05-23.
           </p>
         </div>
       </div>

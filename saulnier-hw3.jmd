@@ -20,7 +20,7 @@ using Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
     μe::Float64 = 0.0   # Mean of random shoc
     σe::Float64 = 0.1   # SD of random shock  
 
-    mugrid::Vector{Float64} = LinRange(0.05,0.5,20)
+    mugrid::Vector{Float64} = LinRange(0.05,3,20)
     spline_order::Int = 3
 
 end;
@@ -72,6 +72,14 @@ given $\mu_{i,-1}$
 ## Problem 2  
 Let $V(\mu)$ be the value of a firm entering with markup $\mu$ (this is after it's current quality shock $\epsilon$ is realized so $\mu=\frac{\mu\_}{\exp(\epsilon_i)}$ where $\mu\_$ is last period's markup) which chooses not to change prices this period.  Let $J$ be the value of a firm which elects to change prices this period (why doesn't this depend on $\mu$?).  Write down the Bellman equation(s) of the firm.
 
+**The Bellman Equation can be written as** $Π(μ) = \max{V(μ), J}$ **where**
+
+```math
+V(\mu) = W̄^{1-γ}*(μ - 1)*μ^{-γ} + β E[Π(μ)]
+J = \max_{μ_0}   W̄^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E[Π(μ_0)] 
+```
+
+$V(μ)$ **is the value a firm gets if they do not change their prices, and $J$ is the value a firm gets if they do change their prices.**
 
 ## Problem 3  
 Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =0.01$ and $\sigma_\epsilon = 0.1$.  Write a program to solve the problem of the firm. (Use Gauss-Hermite quadrature to compute the expectation over $\epsilon_i$)
@@ -176,12 +184,21 @@ function getΠ0(para::MParameters)
 end
 
 para = MParameters()
-muprime,Π = solvebellman(para,getΠ0(para));
+#muprime,Π = solvebellman(para,getΠ0(para));
 
 ```
 
 ## Problem 4  
 When do firms change their prices? (You should find that firms change their prices once markups are outside of a certain range of the optimal markup)
+
+```julia
+
+plot(
+    layer(y->muprime([y,0.3]),0,1,color=["FuncDtioDn"]),
+    layer(y->y,0,1,color=["yellow"]),
+            Guide.xlabel("μ"),Guide.ylabel("Optimal Policy"))
+
+```
 
 
 ## Problem 5  
