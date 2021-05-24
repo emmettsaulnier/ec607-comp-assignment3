@@ -9,21 +9,6 @@ First, I load packages, create a struct for the model, and set the plot theme.
 
 ```julia 
 # Setting up model objects
-using Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
-
-# Struct for the model 
-@with_kw mutable struct MParameters
-    β::Float64 = 0.9981 # Monthly Discount Factor
-    γ::Float64 = 3.0    # Elasticity of substitution
-    κ::Float64 = 0.01   # Cost of changing prices    
-    W̄::Float64 = 1      # Wages
-    μe::Float64 = 0.0   # Mean of random shoc
-    σe::Float64 = 0.1   # SD of random shock  
-
-    mugrid::Vector{Float64} = LinRange(0.05,3,30)
-    spline_order::Int = 3
-
-end;
 
 # Setting plot themes
 set_default_plot_size(12inch, 6inch)
@@ -104,7 +89,22 @@ Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =
 
 ```julia
 
-using Optim, BasisMatrices, Distributions
+using Optim, BasisMatrices, Distributions, Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
+
+# Struct for the model 
+@with_kw mutable struct MParameters
+    β::Float64 = 0.9981 # Monthly Discount Factor
+    γ::Float64 = 3.0    # Elasticity of substitution
+    κ::Float64 = 0.01   # Cost of changing prices    
+    W̄::Float64 = 1      # Wages
+    μe::Float64 = 0.0   # Mean of random shoc
+    σe::Float64 = 0.1   # SD of random shock  
+    n_gh::Int = 10      # Points in Gauss Hermite Quadrature 
+    mugrid::Vector{Float64} = LinRange(0.5,2.5,40)
+    spline_order::Int = 1
+
+end;
+
 # Gauss-Hermite Quadrature for expected value of ϵ
 """
     expectation_normal(h,μ,σ,N)
@@ -112,10 +112,8 @@ using Optim, BasisMatrices, Distributions
 Compute the expectation of a function h(y) of a normal variable y∼N(μ,σ) using
 N point Gauss-Hermite quadrature
 """
-function expectation_normal(h,μ,σ,N)
-    ξ,w = gausshermite(N)
-    x = sqrt(2).*σ.*ξ .+ μ
-    return sum(w[i]*h(x[i]) for i in 1:N)/sqrt(pi)
+function expectation_normal(Πprime,μ)
+    return sum(w[i]*Πprime(μ/exp(x[i])) for i in eachindex(x))/sqrt(pi)
 end;
 
 
@@ -128,17 +126,17 @@ level k given parameters in para.
 function optimalpolicy(para::MParameters,Πprime,μ)
     @unpack β,γ,κ,W̄,μe,σe,mugrid = para
     # Value if the firm does not change prices  
-    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(εprime->Πprime(μ/εprime),μe,σe,10)
-    # Value if the firm does change prices  
-    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(εprime->Πprime(μo/εprime),μe,σe,10))
-    Jresult = optimize(J,mugrid[1],mugrid[end])
-    # Choosing whether to keep prices or change prices 
-    if V >= -Jresult.minimum 
-        return(μprime = μ, Π = V)
-    else 
-        return(μprime = Jresult.minimizer, Π = -Jresult.minimum)
-    end
+    V = W̄^(1-γ)*(μ - 1)*μ^(-γ) + β*expectation_normal(Πprime,μ)
+    return V
 end;
+
+# Gets J value and optimal markup, for when firm changes prices
+function getJ(para::MParameters, Πprime::Interpoland)
+    @unpack β,γ,κ,W̄,μe,σe,mugrid = para
+    J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(Πprime,μo))
+    Jresult = optimize(J,mugrid[1],mugrid[end])
+    return (J = -Jresult.minimum, μ = Jresult.minimizer)
+end 
 
 
 """
@@ -150,8 +148,20 @@ function bellmanmap(para::MParameters, Πprime::Interpoland)
     # Getting the basis and nodes for μ from Πprime
     mubasis = Πprime.basis
     munodes = nodes(mubasis)[1]
+    # Value if the firm does change prices  
+    J = getJ(para,Πprime).J
+    # Value if the firm doesn't change prices 
+    V = map(μ->optimalpolicy(para,Πprime,μ),munodes)
+    # Choosing whether to keep prices or change prices 
+    Π = zeros(length(munodes))
+    for i in eachindex(Π)
+        if V[i] >= J
+            Π[i] = V[i]
+        else 
+            Π[i] = J
+        end
+    end
     # Calculating value function at nodes and then inerpolating
-    Π = map(μ->optimalpolicy(para,Πprime,μ).Π,munodes)
     Π̂ = Interpoland(mubasis,Π)
     return Π̂
 end;
@@ -168,16 +178,26 @@ function solvebellman(para::MParameters, Π0::Interpoland)
     while diff > 1e-6
         Π = bellmanmap(para,Π0)
         diff = norm(Π.coefs-Π0.coefs,Inf)
-        println("Diff is: $diff")
+        #println("Diff is: $diff")
         Π0 = Π
     end
     # Now getting the policy rules using the interpolated value function
     pol_basis = Π0.basis
     pol_nodes = nodes(pol_basis)[1]
     # Calculating function values at nodes and interpolating
-    pol_vals = map(μ->optimalpolicy(para,Πprime,μ).μprime,pol_nodes)
+    V = map(μ->optimalpolicy(para,Π0,μ),pol_nodes)
+    J,j_μ = getJ(para,Π0)
+    # Choosing whether to keep prices or change prices 
+    pol_vals = zeros(length(pol_nodes))
+    for i in eachindex(pol_vals)
+        if V[i] >= J
+            pol_vals[i] = pol_nodes[i]
+        else 
+            pol_vals[i] = j_μ
+        end
+    end
     μ̂ = Interpoland(pol_basis,pol_vals)
-    return μ̂,Π0
+    return (μ̂ = μ̂, Π = Π0)
 end;
 
 
@@ -195,7 +215,9 @@ function getΠ0(para::MParameters)
 end
 
 para = MParameters()
-#muprime,Π = solvebellman(para,getΠ0(para));
+ξ,w = gausshermite(para.n_gh)
+x = sqrt(2).*para.σe.*ξ .+ para.μe
+muprime,Π = solvebellman(para,getΠ0(para));
 
 ```
 
@@ -206,11 +228,11 @@ When do firms change their prices? (You should find that firms change their pric
 
 ```julia
 # Plotting optimal policy rules for range of given markups
-#plot(
-#    layer(y->muprime(y),0,3,color=["Estimated Policy Rule"]),
-#    layer(y->y,0,3,color=["45 Deg line"]),
-#    Guide.xlabel("μ"),Guide.ylabel("Optimal Policy")
-#)
+plot(
+    layer(y->muprime(y),0,3,color=["Estimated Policy Rule"]),
+    layer(y->y,0,3,color=["45 Deg line"]),
+    Guide.xlabel("μ"),Guide.ylabel("Optimal Policy")
+)
 ```
 
 
@@ -224,37 +246,37 @@ in the steady state.
 
 ```julia 
 # Taking initial draws 
+using Random
+Random.seed!(1234)
 N = 100000
-ε0 = rand(Normal(para.μe, para.σe), N)
-μ0 = 1 ./exp.(ε0)
 ε1 = rand(Normal(para.μe, para.σe), N)
-μ1 = μ0 ./ exp.(ε1)
-
-
+μ1 = 1.5 ./exp.(ε1)
 
 # Finds the average number of firms changing prices and the average size of price change
-function calc_pricechange(κ, σe)
+function calc_pricechange(x)
     # Setting parameter values
-    para.κ = κ
-    para.σe = σe
+    para.κ = x[1]
+    para.σe = x[2]
     # Solving bellman for those parameters 
-    muprime  = solvebellman(para)
+    muprime  = solvebellman(para,getΠ0(para)).μ̂
     # Calculating Optimal Policy Choices 
     μopt = muprime.(μ1)
-    I = zeroes(N)
-    Δ = zeroes(N)
+    I = zeros(N)
+    Δ = zeros(N)
     for i in 1:N
         if μopt[i] == μ1[i] # No Price change
             I[i] = 0
             Δ[i] = 0
         else 
             I[i] = 1
-            Δ[i] = W̄*exp(ε0[i])*(μopt[i]*exp(ε1[i]) - μ0)
+            Δ[i] = para.W̄*(μopt[i]*exp(ε1[i]) - 1.5)
         end 
     end 
     # Percentage of price changes and average size of price changes 
     return (perc_change = mean(I), avg_p_change = mean(Δ))
 end 
+
+calc_pricechange([para.κ, para.σe])
 
 # Finds κ and σe to calibrate  
 using NLsolve
