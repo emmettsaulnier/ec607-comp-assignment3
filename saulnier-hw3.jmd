@@ -8,7 +8,10 @@ date: 5/17/2021
 First, I load packages, create a struct for the model, and set the plot theme.  
 
 ```julia 
-# Setting up model objects
+# Loading packages
+using Optim, BasisMatrices, Distributions, Parameters, 
+FastGaussQuadrature, Gadfly, LinearAlgebra, Random, NLsolve,
+Cairo, Fontconfig
 
 # Setting plot themes
 set_default_plot_size(12inch, 6inch)
@@ -78,8 +81,8 @@ Let $V(\mu)$ be the value of a firm entering with markup $\mu$ (this is after it
 **The Bellman Equation can be written as $Π(μ) = \max\{V(μ), J\}$ where**
 
 ```math
-V(\mu) = \bar W^{1-γ}*(μ - 1)*μ^{-γ} + β E[Π(μ)] \\
-J = \max_{μ_0}  \bar W^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E[Π(μ_0)] 
+V(\mu) = \bar W^{1-γ}(μ - 1)μ^{-γ} + β E\left(Π\left(\frac{μ}{\exp{ε}}\right)\right) \\
+J = \max_{μ_0}  \bar W^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E\left(Π\left(\frac{μ_0}{\exp{ε}}\right)\right) 
 ```
 
 **$V(μ)$ is the value a firm gets if they do not change their prices, and $J$ is the value a firm gets if they do change their prices. $J$ does not depend on $\mu$ since future markups only depends on future quality shocks and then current markup choice.**
@@ -88,9 +91,6 @@ J = \max_{μ_0}  \bar W^{1-γ}(μ_0 - 1)μ_0^{-γ} - κ + β E[Π(μ_0)]
 Let $\beta=0.9981$ (targeting a monthly discount factor), $\gamma =3$, $\kappa =0.01$ and $\sigma_\epsilon = 0.1$.  Write a program to solve the problem of the firm. (Use Gauss-Hermite quadrature to compute the expectation over $\epsilon_i$)
 
 ```julia
-
-using Optim, BasisMatrices, Distributions, Parameters, FastGaussQuadrature, Gadfly, LinearAlgebra
-
 # Struct for the model 
 @with_kw mutable struct MParameters
     β::Float64 = 0.9981 # Monthly Discount Factor
@@ -100,17 +100,17 @@ using Optim, BasisMatrices, Distributions, Parameters, FastGaussQuadrature, Gadf
     μe::Float64 = 0.0   # Mean of random shoc
     σe::Float64 = 0.1   # SD of random shock  
     n_gh::Int = 10      # Points in Gauss Hermite Quadrature 
-    mugrid::Vector{Float64} = LinRange(0.5,2.5,40)
-    spline_order::Int = 1
+    mugrid::Vector{Float64} = LinRange(1.,2.,20)
+    spline_order::Int = 1 #
 
 end;
 
 # Gauss-Hermite Quadrature for expected value of ϵ
 """
-    expectation_normal(h,μ,σ,N)
+    expectation_normal(Πprime,μ)
 
-Compute the expectation of a function h(y) of a normal variable y∼N(μ,σ) using
-N point Gauss-Hermite quadrature
+Computes the expectation of Πprime given μ using 
+pre-calculated Gauss-Hermite Quadrature weights (w) and nodes (x)
 """
 function expectation_normal(Πprime,μ)
     return sum(w[i]*Πprime(μ/exp(x[i])) for i in eachindex(x))/sqrt(pi)
@@ -118,10 +118,10 @@ end;
 
 
 """
-    optimalpolicy(para::NCParameters,Vprime,k)
+    optimalpolicy(para::MParameters,Πprime,μ)
 
-Computes optimal policy using continuation value function V and current capital
-level k given parameters in para.
+Computes value to firm if they do not change prices, V, 
+for given markup μ and value function Πprime
 """
 function optimalpolicy(para::MParameters,Πprime,μ)
     @unpack β,γ,κ,W̄,μe,σe,mugrid = para
@@ -130,7 +130,13 @@ function optimalpolicy(para::MParameters,Πprime,μ)
     return V
 end;
 
-# Gets J value and optimal markup, for when firm changes prices
+
+"""
+    getJ(para::MParameters, Πprime::Interpoland)
+
+ Calculates firm value when they do change prices, J, and the optimal markup 
+ associated with this change, given a value function Πprime
+"""
 function getJ(para::MParameters, Πprime::Interpoland)
     @unpack β,γ,κ,W̄,μe,σe,mugrid = para
     J(μo) = - (W̄^(1-γ)*(μo - 1)*μo^(-γ) - κ + β*expectation_normal(Πprime,μo))
@@ -140,9 +146,9 @@ end
 
 
 """
-    bellmanmap(Vprime,para::NCParameters) 
+    bellmanmap(para::MParameters, Πprime::Interpoland)
 
-Apply the bellman map given continuation value function Vprime and shock ε 
+Apply the bellman map given continuation value function Πprime 
 """
 function bellmanmap(para::MParameters, Πprime::Interpoland)
     # Getting the basis and nodes for μ from Πprime
@@ -161,16 +167,16 @@ function bellmanmap(para::MParameters, Πprime::Interpoland)
             Π[i] = J
         end
     end
-    # Calculating value function at nodes and then inerpolating
+    # Using basis and value at nodes to interpolate
     Π̂ = Interpoland(mubasis,Π)
     return Π̂
 end;
 
 
 """
-    solvebellman(para::NCParameters,V0::Interpoland)
+    solvebellman(para::MParameters, Π0::Interpoland)
 
-Solves the bellman equation for a given V0
+Solves the bellman equation for a given Π0
 """
 function solvebellman(para::MParameters, Π0::Interpoland)
     diff = 1
@@ -184,7 +190,7 @@ function solvebellman(para::MParameters, Π0::Interpoland)
     # Now getting the policy rules using the interpolated value function
     pol_basis = Π0.basis
     pol_nodes = nodes(pol_basis)[1]
-    # Calculating function values at nodes and interpolating
+    # Calculating function values at nodes
     V = map(μ->optimalpolicy(para,Π0,μ),pol_nodes)
     J,j_μ = getJ(para,Π0)
     # Choosing whether to keep prices or change prices 
@@ -202,9 +208,9 @@ end;
 
 
 """
-    getV0(para::NCParameters)
+    getΠ0(para::MParameters)
 
-Initializes V0(k) = 0 using the kgrid of para
+Initializes Π0(mu) = 0 using the mugrid of para
 """
 function getΠ0(para::MParameters)
     @unpack mugrid,spline_order = para
@@ -214,11 +220,11 @@ function getΠ0(para::MParameters)
     return Interpoland(mubasis,μ->0 .*μ)
 end
 
-para = MParameters()
-ξ,w = gausshermite(para.n_gh)
-x = sqrt(2).*para.σe.*ξ .+ para.μe
-muprime,Π = solvebellman(para,getΠ0(para));
 
+para = MParameters();
+ξ,w = gausshermite(para.n_gh); # Setting ip GH quadtrature weights
+x = sqrt(2).*para.σe.*ξ .+ para.μe; # GH quadrature nodes
+muprime,Π = solvebellman(para,getΠ0(para)); # Finding optimal policies
 ```
 
 ## Problem 4  
@@ -235,6 +241,16 @@ plot(
 )
 ```
 
+```julia 
+# Getting max and min values that firm doesn't change prices 
+res_min = optimize(muprime,1.,2.,GoldenSection());
+res_max = optimize(μ -> -muprime(μ),1.,2.,GoldenSection());
+min_μ = round(Optim.minimizer(res_min); digits = 5);
+max_μ = round(Optim.minimizer(res_max); digits = 5);
+
+println("A firm will change prices if the markup is below $min_μ or above $max_μ" )
+```
+
 
 ## Problem 5  
 Write a program to simulate $100,000$ firms to compute an ergodic distribution of firm markups.  Adjust $\kappa$ and $\sigma_\epsilon$ so that in the ergodic distribution 21.9\% of firms change their price every month and the average size of price changes is $0.095$. Compute the average markup
@@ -244,21 +260,42 @@ Write a program to simulate $100,000$ firms to compute an ergodic distribution o
 
 in the steady state.
 
-```julia 
-# Taking initial draws 
-using Random
-Random.seed!(1234)
-N = 100000
-ε1 = rand(Normal(para.μe, para.σe), N)
-μ1 = 1.5 ./exp.(ε1)
 
-# Finds the average number of firms changing prices and the average size of price change
+**I'll try to fix this, but currently my calibration code is not working as expected.**
+
+```julia 
+
+# Pulling 100K draws 
+Random.seed!(1234);
+N = 100000;
+ε1 = rand(Normal(para.μe, para.σe), N);
+μ1 = 1.5 ./exp.(ε1);
+
+"""
+    calc_pricechange(x)
+
+ Finds the average number of firms changing prices and the average size of price change.
+
+ x[1] is κ, the fixed cost of changing prices, and x[2] is σe, the std dev of quality shock.
+
+ The function starts by finding the optimal policies given the model parameters, then 
+ uses those policies to find the percentage of firms that change prices and the average
+ size of the price changes. 
+
+ Those metrics are then compared to 21.9% and 0.095 respectively to return the difference between the 
+ models calculation and real data.
+"""
 function calc_pricechange(x)
     # Setting parameter values
-    para.κ = x[1]
-    para.σe = x[2]
+    cpara.κ = x[1]
+    cpara.σe = x[2]
     # Solving bellman for those parameters 
-    muprime  = solvebellman(para,getΠ0(para)).μ̂
+    muprime  = solvebellman(cpara,getΠ0(cpara)).μ̂
+    # Drawing a sample
+    Random.seed!(1234)
+    N = 100000
+    ε1 = rand(Normal(cpara.μe, cpara.σe), N)
+    μ1 = 1.5 ./exp.(ε1)
     # Calculating Optimal Policy Choices 
     μopt = muprime.(μ1)
     I = zeros(N)
@@ -267,50 +304,62 @@ function calc_pricechange(x)
         if μopt[i] == μ1[i] # No Price change
             I[i] = 0
             Δ[i] = 0
-        else 
+        else # Firm changes price
             I[i] = 1
             Δ[i] = para.W̄*(μopt[i]*exp(ε1[i]) - 1.5)
         end 
     end 
-    # Percentage of price changes and average size of price changes 
-    return (perc_change = mean(I), avg_p_change = mean(Δ))
+    # Percentage of price changes and average size of price changes, residualized
+    return (I_res = mean(I) - 0.219, Δ_res = mean(Δ) - 0.095)
 end 
 
-calc_pricechange([para.κ, para.σe])
-
+"""
 # Finds κ and σe to calibrate  
-using NLsolve
-res = nlsolve(calc_pricechange,[0.219,0.095])
 
-println("Did the root solver converge: $(converged(res))")
-println("What was the solution: $(res.zero)")
-println("Check f at solution: $(f(res.zero))")
+# The below line should be able to find the values of κ and σe to match the data 
+# by setting the residual for each metric equal to zero, then finding the root 
+# using non-linear solver. However, the algorithm was not able to find the roots
 
-# Finding calibrated model 
-para.κ = res.zero[1]
+res = nlsolve(calc_pricechange,[0.,0.])
+
+# Finding calibrated model (if above worked)
+para.κ = res.zero[1] 
 para.σe = res.zero[2]
-μprime_cal = solvebellman(para)
+"""
+# sticking with original calibration because I can't get the above to work
+μprime_cal = solvebellman(para, getΠ0(para));
 
-# Average markup in steady state
+
+"""
+    avg_markup(μ)
+
+Calculates the average markup given μ and γ
+"""
 function avg_markup(μ) 
     return mean(μ.^(1-para.γ))^(1/(1-para.γ))
 end 
 
-# Iterates the value function to converge to steady state
-function compute_steady_state(μ,T)
+
+"""
+    compute_steady_state(μ,T)
+
+Iterates optimal policies T periods given initial markup μ
+using optimal policies 
+"""
+function compute_steady_state(μ,T)    
     avg_μ = zeros(T + 1)
     avg_μ[1] = avg_markup(μ)
     for i in 1:T
-        μ_new = μprime_cal(μ_shock)
-        avg_μ[i+1] = avg_markup(μ_new)
+        μ = μprime_cal.μ̂.(μ)
+        avg_μ[i+1] = avg_markup(μ)
     end 
-    return (avg_μ = avg_μ, μ̄ = μ_new)
+    return (avg_μ = avg_μ, μ̄ = μ)
 end
 
 # Finding markup in steady state starting from initial distrubution
-μopt = μprime_cal(μ1)
-avg_μ,μ̄ = compute_steady_state(μopt, 500)
-avg_μ_ss = avg_μ[end]
+μopt = μprime_cal.μ̂.(μ1);
+avg_μ,μ̄ = compute_steady_state(μopt, 100);
+avg_μ_ss = round(avg_μ[end]; digits = 3);
 println("The average markup in steady state is: $avg_μ_ss")  
 
 ```
@@ -321,13 +370,41 @@ Suppose that wage costs unexpectly increase by 5\% (this will reduce the markups
 
 ```julia 
 
-# Simulating shock to 
-T = 100
-μ_shock = 0.95 .* μ̄ 
-avg_μ_path = compute_steady_state(μ_shock, T).avg_μ
+"""
+    simulate_Wshock(μ0,T)
 
+Simulates T periods given initial markup μ
+"""
+function simulate_Wshock(para::MParameters,μ,T)    
+    @unpack μe,σe = para    
+    avg_μ = zeros(T + 1)
+    avg_μ[1] = avg_markup(μ)
+    for i in 1:T
+        ε = rand(Normal(μe, σe), length(μ))
+        μ = μ ./ exp.(ε)
+        μ = μprime_cal.μ̂.(μ)
+        avg_μ[i+1] = avg_markup(μ)
+    end 
+    return (avg_μ = avg_μ, μ̄ = μ)
+end
+
+
+# Simulating shock to markups
+T = 25;
+μ_shock = 0.95 .* μ̄; 
+avg_μ_path = simulate_Wshock(para,μ_shock,T).avg_μ;
+```
+
+```julia 
 # Plotting the results 
-plot(y = compute_steady_state(μ_shock, T).avg_μ)
-
+plot(
+    layer(y = avg_μ_path, Geom.point, color = ["Avg Markup"]),
+    layer(y -> avg_μ_ss,0,length(avg_μ_path), Geom.line, color = ["Steady State"]),
+    Guide.xlabel("Time"),Guide.ylabel("Avg Markup"),
+    Coord.cartesian(xmin=0, xmax=length(avg_μ_path))
+    )
 
 ```
+
+
+**Based on the above plot, firms take 4 periods to adjust prices to pass on the wage shock to consumers.**
